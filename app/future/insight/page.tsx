@@ -103,7 +103,7 @@ export default function FutureInsightPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             lifeDNA: {
-              summary: parsedDna?.summary || "",
+              summary: parsedDna?.summary || "用户暂未生成 Life DNA，请基于 userState 分析。",
               traits: parsedDna?.traits || [],
               lifeTheme: parsedDna?.lifeTheme || "",
             },
@@ -126,7 +126,8 @@ export default function FutureInsightPage() {
         });
 
         if (!res.ok) {
-          throw new Error(`API 返回错误: ${res.status}`);
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error || `API 返回错误: ${res.status}`);
         }
 
         const json = await res.json();
