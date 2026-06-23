@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useFutureLabStore } from "@/stores/future-lab-store";
 import type { LifeDNA } from "@/types";
-import type { FutureInsight, InsightSignal, FutureUserState } from "@/types/future";
+import type { FutureInsight, FutureUserState } from "@/types/future";
 
 export default function FutureInsightPage() {
   const router = useRouter();
@@ -279,65 +279,12 @@ export default function FutureInsightPage() {
             </div>
 
             <p className="text-xs leading-relaxed text-muted-foreground">
-              这个问题是你未来 3-5 年的核心张力。以下洞察围绕它展开。系统将在下一步基于这些洞察为你生成具体的未来路线。
+              在下一步，系统将基于你的现状为你生成具体的未来路线。
             </p>
           </CardContent>
         </Card>
 
-        {/* ===== 3. AI 洞察 ===== */}
-        <div className="mb-8 space-y-4 animate-fade-in-up animate-delay-300">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10 text-xs text-emerald-400/70">
-              3
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400/70">
-              AI 分析依据
-            </span>
-          </div>
-
-          {/* 经历信号 */}
-          <SignalCard
-            title="你的经历显示"
-            icon="📖"
-            color="blue"
-            signals={insight.experienceSignals}
-          />
-
-          {/* 倾向信号 */}
-          <SignalCard
-            title="你的选择倾向显示"
-            icon="📊"
-            color="purple"
-            signals={insight.patternSignals}
-          />
-
-          {/* 现状信号 */}
-          <SignalCard
-            title="你的当前处境显示"
-            icon="📍"
-            color="amber"
-            signals={insight.situationSignals}
-          />
-
-          {/* 收束语 */}
-          <Card className="border-primary/10 bg-primary/5 backdrop-blur-sm">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3">
-                <span className="text-lg shrink-0 mt-0.5">💡</span>
-                <div>
-                  <p className="text-xs font-medium text-primary/60 uppercase tracking-wider mb-1">
-                    系统观察
-                  </p>
-                  <p className="text-sm leading-relaxed text-foreground/80">
-                    {insight.summary}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ===== 操作栏 ===== */}
+        {/* ===== 3. 操作栏 ===== */}
         <div className="flex flex-col items-center gap-3 animate-fade-in-up animate-delay-500">
           <div className="flex gap-3">
             <Button
@@ -352,7 +299,7 @@ export default function FutureInsightPage() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            下一步：基于以上洞察，系统将为你生成专属的未来路线
+            下一步：系统将为你生成专属的未来路线
           </p>
         </div>
       </div>
@@ -360,71 +307,3 @@ export default function FutureInsightPage() {
   );
 }
 
-// ===== 子组件 =====
-
-/** 信号卡片 */
-function SignalCard({
-  title,
-  icon,
-  color,
-  signals,
-}: {
-  title: string;
-  icon: string;
-  color: "blue" | "purple" | "amber";
-  signals: InsightSignal[];
-}) {
-  const colorMap = {
-    blue: {
-      border: "border-blue-500/10",
-      bg: "bg-blue-500/5",
-      bar: "bg-blue-500/30",
-      dot: "bg-blue-400/60",
-      text: "text-blue-400/70",
-    },
-    purple: {
-      border: "border-purple-500/10",
-      bg: "bg-purple-500/5",
-      bar: "bg-purple-500/30",
-      dot: "bg-purple-400/60",
-      text: "text-purple-400/70",
-    },
-    amber: {
-      border: "border-amber-500/10",
-      bg: "bg-amber-500/5",
-      bar: "bg-amber-500/30",
-      dot: "bg-amber-400/60",
-      text: "text-amber-400/70",
-    },
-  };
-
-  const c = colorMap[color];
-
-  return (
-    <Card className={`border ${c.border} ${c.bg} backdrop-blur-sm`}>
-      <CardContent className="p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <span>{icon}</span>
-          <span className={`text-xs font-semibold uppercase tracking-wider ${c.text}`}>
-            {title}
-          </span>
-        </div>
-        <div className="space-y-3">
-          {signals.map((signal, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm leading-relaxed text-foreground/80">{signal.text}</p>
-                {signal.reference && (
-                  <span className="mt-1 inline-block text-[10px] text-muted-foreground/50">
-                    来源：{signal.reference}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
