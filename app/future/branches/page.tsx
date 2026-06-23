@@ -79,8 +79,23 @@ export default function FutureBranchesPage() {
     };
     setUserState(state);
 
-    // 调用真实 API
+    // 调用真实 API（已生成则跳过，防止选项反复变化）
     async function fetchBranches() {
+      // 尝试从缓存恢复
+      const cacheRaw = localStorage.getItem("future-branches-cache");
+      if (cacheRaw) {
+        try {
+          const cached = JSON.parse(cacheRaw);
+          if (cached.confusion === store.userConfusion) {
+            setBranches(cached.branches);
+            setBranchComparison(cached.comparison || "");
+            store.setBranches(cached.branches, cached.comparison || "");
+            setLoading(false);
+            return;
+          }
+        } catch { /* ignore */ }
+      }
+
       try {
         const res = await fetch("/api/generate-future-branches", {
           method: "POST",
@@ -113,6 +128,14 @@ export default function FutureBranchesPage() {
         setBranches(json.branches);
         setBranchComparison(json.comparison || "");
         store.setBranches(json.branches, json.comparison || "");
+        // 缓存结果，刷新后不重新生成
+        try {
+          localStorage.setItem("future-branches-cache", JSON.stringify({
+            confusion: store.userConfusion,
+            branches: json.branches,
+            comparison: json.comparison || "",
+          }));
+        } catch { /* ignore */ }
       } catch (e) {
         console.error("[future-branches] API 调用失败:", e);
         setError(e instanceof Error ? e.message : "生成路线失败，请重试");
