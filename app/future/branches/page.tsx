@@ -12,7 +12,10 @@ const branchIcons = ["📚", "💼", "🎨"];
 
 export default function FutureBranchesPage() {
   const router = useRouter();
-  const store = useFutureLabStore();
+  const userConfusion = useFutureLabStore((s) => s.userConfusion);
+  const insight = useFutureLabStore((s) => s.insight);
+  const setBranchesStore = useFutureLabStore((s) => s.setBranches);
+  const selectBranch = useFutureLabStore((s) => s.selectBranch);
 
   const [dna, setDna] = useState<LifeDNA | null>(null);
   const [userState, setUserState] = useState<FutureUserState | null>(null);
@@ -24,11 +27,11 @@ export default function FutureBranchesPage() {
 
   useEffect(() => {
     // insight 必须存在（由 /future/insight 页面写入 store）
-    if (!store.userConfusion) {
+    if (!userConfusion) {
       router.replace("/future/onboarding");
       return;
     }
-    if (!store.insight) {
+    if (!insight) {
       router.replace("/future/insight");
       return;
     }
@@ -75,7 +78,7 @@ export default function FutureBranchesPage() {
       city: effectiveData.birthPlace,
       dream: effectiveData.dream,
       income: effectiveData.income,
-      confusion: store.userConfusion,
+      confusion: userConfusion,
     };
     setUserState(state);
 
@@ -86,10 +89,10 @@ export default function FutureBranchesPage() {
       if (cacheRaw) {
         try {
           const cached = JSON.parse(cacheRaw);
-          if (cached.confusion === store.userConfusion) {
+          if (cached.confusion === userConfusion) {
             setBranches(cached.branches);
             setBranchComparison(cached.comparison || "");
-            store.setBranches(cached.branches, cached.comparison || "");
+            setBranchesStore(cached.branches, cached.comparison || "");
             setLoading(false);
             return;
           }
@@ -112,10 +115,10 @@ export default function FutureBranchesPage() {
               school: effectiveData.school,
               major: effectiveData.major,
               dream: effectiveData.dream,
-              confusion: store.userConfusion,
+              confusion: userConfusion,
               income: effectiveData.income,
             },
-            insight: store.insight,
+            insight,
           }),
         });
 
@@ -127,11 +130,11 @@ export default function FutureBranchesPage() {
         const json = await res.json();
         setBranches(json.branches);
         setBranchComparison(json.comparison || "");
-        store.setBranches(json.branches, json.comparison || "");
+        setBranchesStore(json.branches, json.comparison || "");
         // 缓存结果，刷新后不重新生成
         try {
           localStorage.setItem("future-branches-cache", JSON.stringify({
-            confusion: store.userConfusion,
+            confusion: userConfusion,
             branches: json.branches,
             comparison: json.comparison || "",
           }));
@@ -145,7 +148,7 @@ export default function FutureBranchesPage() {
     }
 
     fetchBranches();
-  }, [router, store]);
+  }, [router, userConfusion, insight, setBranchesStore]);
 
   function handleSelect(branch: FutureBranch) {
     setSelectedBranchId(branch.id);
@@ -156,8 +159,8 @@ export default function FutureBranchesPage() {
     const branch = branches.find((b) => b.id === selectedBranchId);
     if (!branch) return;
 
-    store.selectBranch(branch);
-    store.setBranches(branches, branchComparison);
+    selectBranch(branch);
+    setBranchesStore(branches, branchComparison);
     router.push("/future/simulation");
   }
 
@@ -197,9 +200,7 @@ export default function FutureBranchesPage() {
     );
   }
 
-  if (!userState || branches.length === 0 || !store.insight) return null;
-
-  const insight = store.insight;
+  if (!userState || branches.length === 0 || !insight) return null;
 
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-12 sm:py-16">
@@ -238,7 +239,7 @@ export default function FutureBranchesPage() {
               <span className="mt-0.5 shrink-0 text-amber-400/60 text-sm">💭</span>
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-amber-400/70 mb-1">你的困惑</p>
-                <p className="text-sm leading-relaxed text-foreground/85">「{store.userConfusion}」</p>
+                <p className="text-sm leading-relaxed text-foreground/85">「{userConfusion}」</p>
               </div>
             </div>
           </CardContent>

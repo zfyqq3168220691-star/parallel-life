@@ -11,7 +11,7 @@ import type { FutureSummaryResponse, FutureSession } from "@/types/future";
 
 export default function FutureSummaryPage() {
   const router = useRouter();
-  const store = useFutureLabStore();
+  const userConfusion = useFutureLabStore((s) => s.userConfusion);
 
   const [dna, setDna] = useState<LifeDNA | null>(null);
   const [session, setSession] = useState<FutureSession | null>(null);
@@ -44,7 +44,7 @@ export default function FutureSummaryPage() {
             lifeTheme: parsedDna.lifeTheme,
           },
           selectedBranch: parsedSession.selectedBranch,
-          confusion: store.userConfusion || "",
+          confusion: userConfusion || "",
           mainChoices: parsedSession.mainChoices.map((c) => ({
             age: c.age, title: c.eventTitle, chosen: c.chosenLabel,
           })),
@@ -67,7 +67,7 @@ export default function FutureSummaryPage() {
     } catch {
       router.replace("/future/onboarding");
     }
-  }, [router, store.userConfusion]);
+  }, [router, userConfusion]);
 
   if (loading) {
     return (

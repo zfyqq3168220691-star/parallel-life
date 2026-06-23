@@ -23,9 +23,24 @@ export default function FutureSimulationPage() {
   const config = buildFutureConfig();
   const sim = useSimulation(config);
 
-  // Guard
+  // Guard（直接从 localStorage 读取，不依赖 Zustand 水合时序）
   useEffect(() => {
-    if (!branch || !confusion) router.replace("/future/onboarding");
+    // 如果 Zustand 已经恢复并有数据，安全通过
+    if (branch && confusion) return;
+
+    // Zustand 还水合完，从 localStorage 读原始数据判断
+    try {
+      const raw = localStorage.getItem("future-lab-store");
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data.state?.selectedBranch && data.state?.userConfusion) {
+          return; // localStorage 有数据，等待 Zustand 水合完成即可
+        }
+      }
+    } catch {}
+
+    // 真没有数据，回 onboarding
+    router.replace("/future/onboarding");
   }, [branch, confusion, router]);
 
   // ---- Loading ----

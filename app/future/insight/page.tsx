@@ -10,7 +10,8 @@ import type { FutureInsight, FutureUserState } from "@/types/future";
 
 export default function FutureInsightPage() {
   const router = useRouter();
-  const store = useFutureLabStore();
+  const userConfusion = useFutureLabStore((s) => s.userConfusion);
+  const setStoreInsight = useFutureLabStore((s) => s.setInsight);
 
   const [dna, setDna] = useState<LifeDNA | null>(null);
   const [userState, setUserState] = useState<FutureUserState | null>(null);
@@ -19,7 +20,7 @@ export default function FutureInsightPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!store.userConfusion) {
+    if (!userConfusion) {
       router.replace("/future/onboarding");
       return;
     }
@@ -70,7 +71,7 @@ export default function FutureInsightPage() {
       city: effectiveData.birthPlace,
       dream: effectiveData.dream,
       income: effectiveData.income,
-      confusion: store.userConfusion,
+      confusion: userConfusion,
     };
     setUserState(state);
 
@@ -113,7 +114,7 @@ export default function FutureInsightPage() {
               school: effectiveData.school,
               major: effectiveData.major,
               dream: effectiveData.dream,
-              confusion: store.userConfusion,
+              confusion: userConfusion,
               income: effectiveData.income,
             },
             history: {
@@ -132,7 +133,7 @@ export default function FutureInsightPage() {
 
         const json = await res.json();
         setInsight(json.insight);
-        store.setInsight(json.insight);
+        setStoreInsight(json.insight);
       } catch (e) {
         console.error("[future-insight] API 调用失败:", e);
         setError(e instanceof Error ? e.message : "生成洞察失败，请重试");
@@ -142,7 +143,7 @@ export default function FutureInsightPage() {
     }
 
     fetchInsight();
-  }, [router, store]);
+  }, [router, userConfusion, setInsight]);
 
   function handleNext() {
     router.push("/future/branches");
@@ -274,7 +275,7 @@ export default function FutureInsightPage() {
 
             <div className="mb-3 rounded-lg border border-amber-500/10 bg-amber-500/5 p-4">
               <p className="text-sm font-medium leading-relaxed text-foreground/90">
-                「{store.userConfusion}」
+                「{userConfusion}」
               </p>
             </div>
 
