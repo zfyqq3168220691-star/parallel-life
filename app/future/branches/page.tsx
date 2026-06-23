@@ -8,87 +8,6 @@ import { useFutureLabStore } from "@/stores/future-lab-store";
 import type { LifeDNA } from "@/types";
 import type { FutureBranch, FutureUserState } from "@/types/future";
 
-// ===== Mock Data（仅路线，不重新生成洞察） =====
-
-interface MockBranchOnlyData {
-  userState: FutureUserState;
-  branches: FutureBranch[];
-  comparison: string;
-}
-
-function buildMockBranches(
-  dna: LifeDNA | null,
-  confusion: string,
-  formData: Record<string, string>
-): MockBranchOnlyData {
-  const birthDate = formData.birthDate || "2006-01-15";
-  const birth = new Date(birthDate);
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const m = now.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
-
-  return {
-    userState: {
-      age,
-      career: formData.career || "student",
-      school: formData.school || "东北大学",
-      major: formData.major || "环境设计",
-      city: formData.birthPlace || "济南",
-      dream: formData.dream || "成为有创造力的人",
-      income: formData.income || "below-50k",
-      confusion,
-    },
-
-    branches: [
-      {
-        id: "branch-0",
-        name: "先考研，争取三年缓冲和更高起点",
-        tagline: "适合需要安全感的人",
-        description:
-          "用考研争取2-3年缓冲期。在研究生阶段补技能短板，同时探索自己在设计之外对什么感兴趣。学历焦虑会减轻——但时间成本真实存在。",
-        preview: {
-          nextStep: "锁定目标院校，开始系统备考",
-          inThreeYears: "在读研，方向比本科时清晰得多",
-          inFiveYears: "用硕士学历进入更好的平台",
-        },
-        basis: { experienceRef: 1, patternRef: 0, situationRef: 0 },
-      },
-      {
-        id: "branch-1",
-        name: "先就业，用真实项目校准方向",
-        tagline: "适合需要真实反馈的人",
-        description:
-          "直接进入职场。在实践中发现自己擅长什么、不喜欢什么。起点可能不如预期——但三年后你比同龄研究生更清楚自己要什么。",
-        preview: {
-          nextStep: "准备作品集，投递春招岗位",
-          inThreeYears: "独立负责项目，已验证了自己的方向",
-          inFiveYears: "要么深耕，要么带着经验转行",
-        },
-        basis: { experienceRef: 1, patternRef: 1, situationRef: 1 },
-      },
-      {
-        id: "branch-2",
-        name: "gap半年，做出作品再决定",
-        tagline: "适合不想被两条路锁死的人",
-        description:
-          "暂时不考研也不就业。用半年集中做作品——弄清自己到底想做什么样的创造。半年后带着作品集和更清晰的方向重新面对那两个选项。",
-        preview: {
-          nextStep: "规划半年的作品方向和生存预算",
-          inThreeYears: "因为作品集出色，进入了想去的领域",
-          inFiveYears: "在你热爱的方向上有了真正的积累",
-        },
-        basis: { experienceRef: 1, patternRef: 2, situationRef: 2 },
-      },
-    ],
-
-    comparison:
-      "三条路的本质差异不是你选哪个——是你付哪种代价。考研付时间，就业付起点，gap付安全感。没有对错。",
-  };
-}
-
-// ============================================================
-
 const branchIcons = ["📚", "💼", "🎨"];
 
 export default function FutureBranchesPage() {
@@ -96,9 +15,12 @@ export default function FutureBranchesPage() {
   const store = useFutureLabStore();
 
   const [dna, setDna] = useState<LifeDNA | null>(null);
-  const [data, setData] = useState<MockBranchOnlyData | null>(null);
+  const [userState, setUserState] = useState<FutureUserState | null>(null);
+  const [branches, setBranches] = useState<FutureBranch[]>([]);
+  const [branchComparison, setBranchComparison] = useState<string>("");
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // insight 必须存在（由 /future/insight 页面写入 store）
@@ -125,22 +47,80 @@ export default function FutureBranchesPage() {
     const parsedUser: Record<string, string> = userRaw ? JSON.parse(userRaw) : {};
     setDna(parsedDna);
 
+    // 计算年龄
+    const birthDate = parsedForm.birthDate || "2000-01-01";
+    const birth = new Date(birthDate);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+
+    // 优先使用 future-user-data，回退到 parallel-life-form
     const effectiveData = {
-      birthDate: parsedForm.birthDate || "",
+      age: parsedUser.age ? parseInt(parsedUser.age, 10) : age,
+      career: parsedUser.career || parsedForm.career || "",
       school: parsedUser.school || parsedForm.school || "",
       major: parsedUser.major || parsedForm.major || "",
-      career: parsedUser.career || parsedForm.career || "",
       dream: parsedUser.dream || parsedForm.dream || "",
       birthPlace: parsedForm.birthPlace || "",
       income: parsedForm.income || "",
     };
 
-    const timer = setTimeout(() => {
-      setData(buildMockBranches(parsedDna, store.userConfusion, effectiveData));
-      setLoading(false);
-    }, 800);
+    // 构建 userState
+    const state: FutureUserState = {
+      age: effectiveData.age,
+      career: effectiveData.career,
+      school: effectiveData.school,
+      major: effectiveData.major,
+      city: effectiveData.birthPlace,
+      dream: effectiveData.dream,
+      income: effectiveData.income,
+      confusion: store.userConfusion,
+    };
+    setUserState(state);
 
-    return () => clearTimeout(timer);
+    // 调用真实 API
+    async function fetchBranches() {
+      try {
+        const res = await fetch("/api/generate-future-branches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lifeDNA: {
+              summary: parsedDna?.summary || "",
+              traits: parsedDna?.traits || [],
+              lifeTheme: parsedDna?.lifeTheme || "",
+            },
+            currentState: {
+              age: effectiveData.age,
+              career: effectiveData.career,
+              school: effectiveData.school,
+              major: effectiveData.major,
+              dream: effectiveData.dream,
+              confusion: store.userConfusion,
+              income: effectiveData.income,
+            },
+            insight: store.insight,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`API 返回错误: ${res.status}`);
+        }
+
+        const json = await res.json();
+        setBranches(json.branches);
+        setBranchComparison(json.comparison || "");
+        store.setBranches(json.branches, json.comparison || "");
+      } catch (e) {
+        console.error("[future-branches] API 调用失败:", e);
+        setError(e instanceof Error ? e.message : "生成路线失败，请重试");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchBranches();
   }, [router, store]);
 
   function handleSelect(branch: FutureBranch) {
@@ -148,12 +128,12 @@ export default function FutureBranchesPage() {
   }
 
   function handleConfirm() {
-    if (!selectedBranchId || !data) return;
-    const branch = data.branches.find((b) => b.id === selectedBranchId);
+    if (!selectedBranchId || branches.length === 0) return;
+    const branch = branches.find((b) => b.id === selectedBranchId);
     if (!branch) return;
 
     store.selectBranch(branch);
-    store.setBranches(data.branches, data.comparison);
+    store.setBranches(branches, branchComparison);
     router.push("/future/simulation");
   }
 
@@ -175,9 +155,26 @@ export default function FutureBranchesPage() {
     );
   }
 
-  if (!data || !store.insight) return null;
+  // ===== Error =====
+  if (error) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <p className="text-lg font-medium text-destructive">出错了</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <button
+            onClick={() => router.push("/future/insight")}
+            className="text-sm text-primary underline"
+          >
+            返回重新分析
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const { userState, branches, comparison } = data;
+  if (!userState || branches.length === 0 || !store.insight) return null;
+
   const insight = store.insight;
 
   return (
@@ -259,7 +256,7 @@ export default function FutureBranchesPage() {
 
         {/* ===== 对比语 ===== */}
         <p className="mb-3 text-center text-xs text-muted-foreground animate-fade-in-up animate-delay-300">
-          {comparison}
+          {branchComparison}
         </p>
 
         {/* ===== 路线卡片 ===== */}

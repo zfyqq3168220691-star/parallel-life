@@ -8,104 +8,15 @@ import { useFutureLabStore } from "@/stores/future-lab-store";
 import type { LifeDNA } from "@/types";
 import type { FutureInsight, InsightSignal, FutureUserState } from "@/types/future";
 
-// ===== Mock Data =====
-
-interface MockInsightData {
-  userState: FutureUserState;
-  insight: FutureInsight;
-}
-
-function buildMockInsight(
-  dna: LifeDNA | null,
-  confusion: string,
-  formData: Record<string, string>
-): MockInsightData {
-  const birthDate = formData.birthDate || "2006-01-15";
-  const birth = new Date(birthDate);
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const m = now.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
-
-  return {
-    userState: {
-      age,
-      career: formData.career || "student",
-      school: formData.school || "东北大学",
-      major: formData.major || "环境设计",
-      city: formData.birthPlace || "济南",
-      dream: formData.dream || "成为有创造力的人",
-      income: formData.income || "below-50k",
-      confusion,
-    },
-
-    insight: {
-      experienceSignals: [
-        {
-          text: "你在16岁时因家境好转转到了美术班——这是一次被动但关键的人生转向，你从普通教育进入了一个更需要创造力的轨道。",
-          source: "experience",
-          reference: "锚点：姐姐赚钱改变家境",
-        },
-        {
-          text: "你选择了环境设计，但你写下的梦想是「成为有创造力的人」——专业是你的安全框架，创造本身才是你的内核。",
-          source: "experience",
-          reference: "梦想：成为有创造力的人",
-        },
-        {
-          text: "你的分岔点是关于一段感情——「不放手」是你反复出现的动机。在你的人生优先级中，关系可能比职业更重。",
-          source: "experience",
-          reference: "分岔选择：认真对待一段感情",
-        },
-      ],
-      patternSignals: [
-        {
-          text: "在推演的11次选择中，你6次选了稳妥路线——安全在你的决策中权重很高。你不轻易把全部筹码推出去。",
-          source: "pattern",
-          reference: "选择统计：6/11 稳妥",
-        },
-        {
-          text: "你从未选择过完全孤注一掷的冒险选项——你的冒险是有保留的，总留一条后路。",
-          source: "pattern",
-          reference: "选择统计：0次孤注一掷",
-        },
-        {
-          text: "当选项涉及他人时，你倾向于共同承担而非独自面对——群体决策让你更安心。",
-          source: "pattern",
-          reference: "选择模式：回避独自决策",
-        },
-      ],
-      situationSignals: [
-        {
-          text: `${age}岁，环境设计大四——考研窗口就在眼前。错过就是往届生，身份不同，容错空间缩水。`,
-          source: "situation",
-          reference: null,
-        },
-        {
-          text: "设计行业正经受AI工具变革——高校教的东西可能已经落后于市场实际需要的技能。",
-          source: "situation",
-          reference: null,
-        },
-        {
-          text: "无论选考研还是就业，你都需要一份能证明自己的作品集——这是一个阻塞性的前置条件，必须先解决。",
-          source: "situation",
-          reference: null,
-        },
-      ],
-      summary:
-        "你站在一个典型的十字路口：你有创造力，但你倾向于先确保安全再表达自己。你的决策模式正在告诉你——你不太可能选最冒险的那条路，但你也不会选让你窒息的那条。",
-    },
-  };
-}
-
-// ============================================================
-
 export default function FutureInsightPage() {
   const router = useRouter();
   const store = useFutureLabStore();
 
   const [dna, setDna] = useState<LifeDNA | null>(null);
-  const [data, setData] = useState<MockInsightData | null>(null);
+  const [userState, setUserState] = useState<FutureUserState | null>(null);
+  const [insight, setInsight] = useState<FutureInsight | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!store.userConfusion) {
@@ -116,6 +27,10 @@ export default function FutureInsightPage() {
     const dnaRaw = localStorage.getItem("parallel-life-dna");
     const formRaw = localStorage.getItem("parallel-life-form");
     const userRaw = localStorage.getItem("future-user-data");
+    const bgDescRaw = localStorage.getItem("parallel-life-background-description");
+    const canonRaw = localStorage.getItem("parallel-life-canon-events");
+    const divSummaryRaw = localStorage.getItem("parallel-life-divergence-summary");
+    const sessionRaw = localStorage.getItem("future-session") || localStorage.getItem("parallel-life-session");
 
     if (!dnaRaw && !userRaw) {
       router.replace("/future/onboarding");
@@ -127,25 +42,105 @@ export default function FutureInsightPage() {
     const parsedUser: Record<string, string> = userRaw ? JSON.parse(userRaw) : {};
     setDna(parsedDna);
 
+    // 计算年龄
+    const birthDate = parsedForm.birthDate || "2000-01-01";
+    const birth = new Date(birthDate);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+
     // 优先使用 future-user-data，回退到 parallel-life-form
     const effectiveData = {
-      birthDate: parsedForm.birthDate || "",
+      age: parsedUser.age ? parseInt(parsedUser.age, 10) : age,
+      career: parsedUser.career || parsedForm.career || "",
       school: parsedUser.school || parsedForm.school || "",
       major: parsedUser.major || parsedForm.major || "",
-      career: parsedUser.career || parsedForm.career || "",
       dream: parsedUser.dream || parsedForm.dream || "",
       birthPlace: parsedForm.birthPlace || "",
       income: parsedForm.income || "",
     };
 
-    const timer = setTimeout(() => {
-      const result = buildMockInsight(parsedDna, store.userConfusion, effectiveData);
-      setData(result);
-      store.setInsight(result.insight);
-      setLoading(false);
-    }, 1200);
+    // 构建 userState
+    const state: FutureUserState = {
+      age: effectiveData.age,
+      career: effectiveData.career,
+      school: effectiveData.school,
+      major: effectiveData.major,
+      city: effectiveData.birthPlace,
+      dream: effectiveData.dream,
+      income: effectiveData.income,
+      confusion: store.userConfusion,
+    };
+    setUserState(state);
 
-    return () => clearTimeout(timer);
+    // 构建 history
+    let canonEvents: { age: string; title: string; description: string }[] = [];
+    if (canonRaw) {
+      try { canonEvents = JSON.parse(canonRaw); } catch { /* ignore */ }
+    }
+
+    let choiceHistory: { age: number; title: string; chosen: string; isDivergence?: boolean }[] = [];
+    if (sessionRaw) {
+      try {
+        const session = JSON.parse(sessionRaw);
+        if (session.mainChoices) {
+          choiceHistory = session.mainChoices.map((c: { age: number; title: string; chosen: string; isDivergence?: boolean }) => ({
+            age: c.age,
+            title: c.title,
+            chosen: c.chosen,
+            isDivergence: c.isDivergence,
+          }));
+        }
+      } catch { /* ignore */ }
+    }
+
+    // 调用真实 API
+    async function fetchInsight() {
+      try {
+        const res = await fetch("/api/generate-future-insight", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lifeDNA: {
+              summary: parsedDna?.summary || "",
+              traits: parsedDna?.traits || [],
+              lifeTheme: parsedDna?.lifeTheme || "",
+            },
+            currentState: {
+              age: effectiveData.age,
+              career: effectiveData.career,
+              school: effectiveData.school,
+              major: effectiveData.major,
+              dream: effectiveData.dream,
+              confusion: store.userConfusion,
+              income: effectiveData.income,
+            },
+            history: {
+              backgroundDescription: bgDescRaw || "",
+              canonEvents,
+              divergenceChoiceSummary: divSummaryRaw || "",
+              choiceHistory,
+            },
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`API 返回错误: ${res.status}`);
+        }
+
+        const json = await res.json();
+        setInsight(json.insight);
+        store.setInsight(json.insight);
+      } catch (e) {
+        console.error("[future-insight] API 调用失败:", e);
+        setError(e instanceof Error ? e.message : "生成洞察失败，请重试");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchInsight();
   }, [router, store]);
 
   function handleNext() {
@@ -170,9 +165,25 @@ export default function FutureInsightPage() {
     );
   }
 
-  if (!data) return null;
+  // ===== Error =====
+  if (error) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <p className="text-lg font-medium text-destructive">出错了</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <button
+            onClick={() => router.push("/future/onboarding")}
+            className="text-sm text-primary underline"
+          >
+            返回重新填写
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const { userState, insight } = data;
+  if (!userState || !insight) return null;
 
   return (
     <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-12 sm:py-16">
