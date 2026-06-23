@@ -62,6 +62,7 @@ export default function FutureOnboardingPage() {
   const [fields, setFields] = useState<UserFields>({ age: "", school: "", major: "", career: "", dream: "" });
   const [dna, setDna] = useState<LifeDNA | null>(null);
   const [ready, setReady] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     const dnaRaw = localStorage.getItem("parallel-life-dna");
@@ -76,9 +77,42 @@ export default function FutureOnboardingPage() {
     setFields((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleSaveAndContinue() {
+  async function handleSaveAndContinue() {
     if (!fields.age || !fields.school || !fields.major || !fields.dream || !userConfusion.trim()) return;
+
+    setGenerating(true);
     localStorage.setItem("future-user-data", JSON.stringify(fields));
+
+    // 计算估算的出生日期（从年龄反推）
+    const ageNum = parseInt(fields.age, 10);
+    const estimatedBirthYear = new Date().getFullYear() - ageNum;
+    const estimatedBirthDate = `${estimatedBirthYear}-01-01`;
+
+    try {
+      const res = await fetch("/api/generate-life-dna", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          birthDate: estimatedBirthDate,
+          birthPlace: "未知",
+          school: fields.school,
+          major: fields.major,
+          career: fields.career,
+          income: "below-50k",
+          dream: fields.dream,
+          mode: "future",
+        }),
+      });
+
+      if (res.ok) {
+        const dnaData = await res.json();
+        localStorage.setItem("parallel-life-dna", JSON.stringify(dnaData));
+      }
+    } catch (e) {
+      console.error("DNA 生成失败（不影响继续）", e);
+    }
+
+    setGenerating(false);
     router.push("/future/insight");
   }
 
@@ -91,15 +125,23 @@ export default function FutureOnboardingPage() {
     setUserConfusion("");
   }
 
-  if (!ready) {
+  if (!ready || generating) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <svg className="h-8 w-8 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <svg className="h-10 w-10 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <p className="text-sm text-muted-foreground">加载中...</p>
+          {ready && (
+            <>
+              <p className="text-lg font-medium">AI 正在分析你的性格画像...</p>
+              <p className="text-sm text-muted-foreground">
+                基于你的信息生成专属 Life DNA
+              </p>
+            </>
+          )}
+          {!ready && <p className="text-sm text-muted-foreground">加载中...</p>}
         </div>
       </div>
     );
