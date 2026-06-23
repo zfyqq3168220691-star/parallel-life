@@ -116,7 +116,23 @@ export function useSimulation(config: SimulationConfig) {
     if (!dnaRaw) return;
     try {
       setDna(JSON.parse(dnaRaw));
-      setFormData(formRaw ? JSON.parse(formRaw) : {});
+
+      // 优先用 parallel-life-form（重启人生），没有则用 future-user-data（未来推演）
+      let merged = formRaw ? JSON.parse(formRaw) : {};
+      if (!formRaw) {
+        const futureRaw = localStorage.getItem("future-user-data");
+        if (futureRaw) {
+          const futureData = JSON.parse(futureRaw);
+          merged = {
+            age: futureData.age || "",
+            school: futureData.school || "",
+            major: futureData.major || "",
+            career: futureData.career || "",
+            dream: futureData.dream || "",
+          };
+        }
+      }
+      setFormData(merged);
       setInitialized(true);
     } catch { /* ignore */ }
   }, []);
