@@ -3,6 +3,25 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { LifeDNA, LifeEvent, LifeChoice, ChosenChoice } from "@/types";
 
+/** 缓存事件到 localStorage，防止刷新后重新生成（选项变化） */
+function saveEventsCache(mode: string, events: LifeEvent[], choices: ChosenChoice[], index: number) {
+  try {
+    localStorage.setItem(`${mode}-sim-cache`, JSON.stringify({ events, choices, index }));
+  } catch { /* quota */ }
+}
+
+function loadEventsCache(mode: string): { events: LifeEvent[]; choices: ChosenChoice[]; index: number } | null {
+  try {
+    const raw = localStorage.getItem(`${mode}-sim-cache`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function clearEventsCache(mode: string) {
+  try { localStorage.removeItem(`${mode}-sim-cache`); } catch { /* ignore */ }
+}
+
 // ---- 类型 ----
 
 export type SimStatus =
@@ -133,6 +152,8 @@ export function useSimulation(config: SimulationConfig) {
         setEvents((prev) => {
           const updated = [...prev];
           updated[index] = result;
+          // 缓存到 localStorage，刷新后恢复
+          saveEventsCache(config.mode, updated, prevChoices, index);
           return updated;
         });
         if (result.narrativeState) setNarrativeState(result.narrativeState);
@@ -156,9 +177,26 @@ export function useSimulation(config: SimulationConfig) {
   // ---- 首次生成或恢复 ----
   useEffect(() => {
     if (dna && initialized && status === "loading") {
-      generateEvent(0, []);
+      // 尝试从缓存恢复已有事件
+      const cached = loadEventsCache(config.mode);
+      if (cached && cached.events.length > 0 && cached.events[0]) {
+        setEvents(cached.events);
+        setPreviousChoices(cached.choices);
+        setEventIndex(cached.index);
+        setCurrentEvent(cached.events[cached.index] || cached.events[0]);
+        const ce = cached.events[cached.index] || cached.events[0];
+        if (ce?.choices?.length > 0) {
+          setStatus("choosing");
+        } else {
+          setStatus("narrative");
+        }
+        if (ce?.narrativeState) setNarrativeState(ce.narrativeState);
+        if (ce?.characterName) setCharacterName(ce.characterName);
+      } else {
+        generateEvent(0, []);
+      }
     }
-  }, [dna, initialized, status, generateEvent]);
+  }, [dna, initialized, status, generateEvent, config.mode]);
 
   // ---- 预选 ----
   function handleChoice(choice: LifeChoice) {
@@ -203,6 +241,7 @@ export function useSimulation(config: SimulationConfig) {
       const evts = [...currentEvents];
       evts[eventIndex] = currentEvent;
       config.persistSession?.(evts, updatedChoices, eventIndex, false);
+      saveEventsCache(config.mode, evts, updatedChoices, eventIndex);
       return evts;
     });
 
@@ -212,6 +251,7 @@ export function useSimulation(config: SimulationConfig) {
         setStatus("completed");
         setIsTransitioning(false);
         config.persistSession?.([], updatedChoices, eventIndex, true);
+        clearEventsCache(config.mode);
         return;
       }
       setEventIndex(nextIndex);
@@ -262,6 +302,7 @@ export function useSimulation(config: SimulationConfig) {
         setStatus("completed");
         setIsTransitioning(false);
         config.persistSession?.([], updatedChoices, eventIndex, true);
+        clearEventsCache(config.mode);
         return;
       }
       setEventIndex(nextIndex);
